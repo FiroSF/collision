@@ -13,6 +13,9 @@ export class Vector {
     readonly y: number;
     readonly size: number;
     constructor(x: number, y: number) {
+        //! HAVE TO CHANGE THIS
+        if (x == 0) x = 0.00001;
+        if (y == 0) y = 0.00001;
         this.x = x;
         this.y = y;
         this.size = (x ** 2 + y ** 2) ** 0.5;
@@ -86,7 +89,7 @@ export abstract class Obj {
         Obj.count++;
         this.ID = Obj.count;
     }
-    renderCalc(dt: number, ctx: CanvasRenderingContext2D): void {}
+    renderCalc(ctx: CanvasRenderingContext2D): void {}
 }
 
 export class MovingObj extends Obj {
@@ -94,16 +97,20 @@ export class MovingObj extends Obj {
 
     constructor(pos: Vector, r: number = 10, cor: number = 1, density: number = 1, velocity: Vector) {
         super(pos, r, cor, density);
-
         this.velocity = velocity;
     }
 
-    getWillBeCalcObjs(objs: Obj[]) {
+    getWillBeCalcObjs(objs: Obj[]): Obj[] {
         var collided: Obj[] = [];
 
         objs.forEach(o => {
+            if (o.ID == this.ID) {
+                return;
+            }
             var subVector = this.pos.sub(o.pos);
             var index = this.calculatedObj.indexOf(o);
+
+            // delete this.calculatedObj[index];
 
             if (subVector.size < this.r + o.r) {
                 if (index == -1) {
@@ -129,6 +136,8 @@ export class MovingObj extends Obj {
         var v1 = MovingObj.calcCollision(a, b, sa, sb, e);
         var v2 = MovingObj.calcCollision(b, a, sb, sa, e);
 
+        // console.log(va, vb, direction, v1, v2);
+
         return [direction.resize(v1), direction.resize(v2)];
     }
 
@@ -144,7 +153,7 @@ export class MovingObj extends Obj {
             var relativePos = target.pos.sub(this.pos); //b - a
 
             // Decomposed Velocity [collision velocity, spectator velocity]
-            var thisDVelocity = target.velocity.decompos(relativePos);
+            var thisDVelocity = this.velocity.decompos(relativePos);
             var targetDVelocity = target.velocity.decompos(relativePos);
 
             var calcedVelocity = MovingObj.collisionProcess(this, target, thisDVelocity[0], targetDVelocity[0], relativePos);
@@ -152,12 +161,15 @@ export class MovingObj extends Obj {
             this.velocity = calcedVelocity[0].sum(thisDVelocity[1]);
             target.velocity = calcedVelocity[1].sum(targetDVelocity[1]);
 
+            console.log(this.velocity, target.velocity, thisDVelocity, targetDVelocity);
+
             this.calculatedObj.push(target);
+            target.calculatedObj.push(this);
         });
     }
 
     posProcess() {
-        this.pos = new Vector(this.pos.x + this.velocity.x * SETTINGS.PHYSICS_REFRESH_RATE, this.pos.y + this.velocity.y * SETTINGS.PHYSICS_REFRESH_RATE);
+        this.pos = new Vector(this.pos.x + this.velocity.x * (1 / SETTINGS.PHYSICS_REFRESH_RATE), this.pos.y + this.velocity.y * (1 / SETTINGS.PHYSICS_REFRESH_RATE));
     }
 }
 // export class Obj {
