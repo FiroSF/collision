@@ -6,9 +6,6 @@ import {SolidPlanet, MovingPlanet} from "./obj/objs";
 export class Board {
     objs: Obj[] = [];
     ships: MovingObj[] = [];
-    dt: number;
-    ratio: number;
-    renderdt: number;
 
     currentSelected: SELECTED_TYPES = SELECTED_TYPES.MOVING_PLANET;
     startX: number = 0;
@@ -22,7 +19,7 @@ export class Board {
 
     isAdding: boolean = false;
 
-    constructor(dt: number, renderdt: number, ratio: number) {
+    constructor(rate: number, renderRate: number) {
         let canvas = document.getElementById("canvas") as HTMLCanvasElement;
         let ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
         ctx.lineCap = "round";
@@ -37,9 +34,8 @@ export class Board {
         this.canvas.width = window.innerWidth - 40;
         this.canvas.height = window.innerHeight - 200;
 
-        this.dt = dt;
-        this.renderdt = renderdt;
-        this.ratio = ratio;
+        SETTINGS.PHYSICS_REFRESH_RATE = rate;
+        SETTINGS.RENDER_REFRESH_RATE = renderRate;
     }
 
     private createUserEvents() {
@@ -71,9 +67,28 @@ export class Board {
 
         (document.getElementById("clear") as HTMLElement).addEventListener("click", this.clearEventHandler);
 
+        let t = document.getElementsByClassName("range");
+        for (let i = 0; i < t.length; i++) {
+            (t.item(i) as HTMLInputElement).addEventListener("input", this.inputEventHandler);
+        }
+
         window.addEventListener("resize", this.resizeEventHandler);
     }
 
+    private inputEventHandler = (e: Event) => {
+        let target = e.target as HTMLInputElement;
+        switch (target.id) {
+            case "e":
+                this.eModify(target);
+                break;
+            default:
+                break;
+        }
+        (document.getElementById(target.id + "Viewer") as HTMLElement).innerText = target.value;
+    };
+    eModify(target: HTMLInputElement) {
+        SETTINGS.COEFFICIENT_OF_RESTITUTION = Number(target.value);
+    }
     // https://github.com/kernhanda/kernhanda.github.io/blob/master/demos/canvas/main.ts
 
     private clearEventHandler = () => {
@@ -144,10 +159,10 @@ export class Board {
     addByPlayer() {
         switch (this.currentSelected) {
             case SELECTED_TYPES.MOVING_PLANET:
-                this.addObj(new MovingPlanet(new Vector(this.startX, this.startY), this.planetSize, 0.3, 1, new Vector(this.startX - this.endX, this.startY - this.endY)));
+                this.addObj(new MovingPlanet(new Vector(this.startX, this.startY), new Vector((this.startX - this.endX) * 4, (this.startY - this.endY) * 4), this.planetSize, SETTINGS.COEFFICIENT_OF_RESTITUTION, 1));
                 break;
             case SELECTED_TYPES.SOLID_PLANET:
-                this.addObj(new SolidPlanet(new Vector(this.startX, this.startY), ((this.endX - this.startX) ** 2 + (this.endY - this.startY) ** 2) ** 0.5 * 10000));
+                this.addObj(new SolidPlanet(new Vector(this.startX, this.startY), ((this.endX - this.startX) ** 2 + (this.endY - this.startY) ** 2) ** 0.5));
                 break;
             default:
                 break;
@@ -169,16 +184,16 @@ export class Board {
             this.ships.forEach(s => {
                 s.posProcess();
             });
-        }, this.dt);
+        }, 1000 / SETTINGS.PHYSICS_REFRESH_RATE);
 
         setInterval(() => {
             this.ctx.clearRect(0, 0, this.canvas.width * 2, this.canvas.height * 2);
             this.ctx.beginPath();
 
             this.objs.forEach(s => {
-                s.renderCalc(this.renderdt, this.ctx);
+                s.renderCalc(this.ctx);
             });
-        }, this.renderdt);
+        }, 1000 / SETTINGS.RENDER_REFRESH_RATE);
     }
 
     findId(l: Obj[], id: number): number {
